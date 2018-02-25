@@ -1,3 +1,69 @@
 
 	联合国教育、科学及文化组织（UNESCO）是一个联合国组织，在其他事情上，为世界自然与文化遗产保护的原则。截至今天（2013年11月），共有981处文物古迹，其中大部分是人造的，如Giza的金字塔，也有大堡礁等自然现象。不幸的是，一些被奖励的地方受到人为干预的威胁。哪些地点受到威胁，地点在哪里？世界上有没有比其他地区更危险的地区？是什么原因使网站处于危险之中？这些是我们在第一个案例研究中要研究的问题。
 	当科学家们想加快话题速度的时候，他们总是先做什么？他们在维基百科上查找！检查出的世界遗产网站页面，在http://en.wikipedia.org/wiki/list_of _ world_heritage_in_danger我们偶然发现一个列出了当前和以前的濒危遗址。在访问链接时，您可以找到与当前站点列出的表。它包括名称、地点（城市、国家和地理坐标）、面临的危险类型、该网站被列入世界遗产名录的年份、以及被列入濒危遗址名单的年份。让我们调查一下这些网站是如何分布在世界各地的。
+  虽然表中有关于这些位置的信息，但并不清楚它们所在的位置，以及它们是否是区域聚集的。不如在地图上绘制地点的位置.作为人类视觉信息处理好，我们将试着去想象结果尽可能的在这本书。由于人类可以很好地处理视觉信息，因此我们会尽可能在本书中尽可能地将结果可视化。但是如何从表格中获取信息到地图上呢？听起来像是一项艰巨的任务，但我们将在下一页中广泛讨论的技术实际上并非如此.现在，我们只为你提供一个如何处理R的任务的初步印象。详细地解释代码段中的命令是在本书后面更系统地提供的。
+  首先，我们必须加载一些包。 虽然R只带有一组基本的，主要是与数学和统计相关的功能，但它可以通过用户编写的软件包轻松扩展。 对于这个例子，我们使用library（）函数加载下列软件包：
+R> library(stringr)
+R> library(XML)
+R> library(maps)
+  在下一步中，我们将网页中的数据加载到R.这可以使用XML包中的readHTMLTable（）函数轻松完成：
+R> heritage_parsed <- htmlParse("http://en.wikipedia.org/wiki/
+List_of_World_Heritage_in_Danger",
+    encoding = "UTF-8")
+R> tables <- readHTMLTable(heritage_parsed, stringsAsFactors = FALSE)
+  我们将在第9章更详细地解释此步骤的机制和所有其他主要的网页抓取技术。现在，您需要知道的是，我们告诉R，导入的数据以HTML文档的形式出现。 R能够解释HTML，也就是说，它知道表格，标题或其他对象是如何以这种格式构成的。 这可以通过一个所谓的解析器来实现，它使用函数htmlParse（）来调用。 在下一步中，我们告诉R提取所有可以在解析对象heritage_parsed中找到的HTML表，并将它们存储在新的对象表中。 如果您还不熟悉HTML，您将会了解到第2章中的HTML表格是由相同的代码组件构建的。readHTMLTable（）函数有助于识别和读出这些表格。
+  我们需要的所有信息现在都包含在表格对象中。 该对象是函数可以在HTML文档中找到的所有表的列表。 在观察所有表格后，我们确定并选择我们感兴趣的表格（第二个表格）并将其写入一个名为danger_table的新表格。 我们表格中的一些变量没有更多的意义，因此我们只选择那些包含网站名称，位置，遗产标准（文化或自然），题词年份和危害年份的信息。 我们表中的变量被分配了不方便的名称，所以我们重新标记它们。 最后，我们看看前几个网站的名称：
+R> danger_table <- danger_table <- tables[[2]]
+R> names(danger_table)
+[1] "NULL.Name"           "NULL.Image"          "NULL.Location"
+[4] "NULL.Criteria"       "NULL.Area.ha..acre." "NULL.Year..WHS."
+[7] "NULL.Endangered"     "NULL.Reason"         "NULL.Refs"
+R> danger_table <- danger_table[, c(1, 3, 4, 6, 7)]
+R> colnames(danger_table) <- c("name", "locn", "crit", "yins", "yend")
+R> danger_table$name[1:3]
+[1] "Abu Mena" "Air and T ́en ́er ́e Natural Reserves" [3] "Ancient City of Aleppo"
+  这似乎奏效了。 另外，我们执行一些简单的数据清理，这是将基于网络的内容导入到R时经常需要的一个步骤。变量crit包含了该网站是否具有文化或自然特征的信息，并且记录了两个变量y_ins和y_end 被转换成数字形式.2 y_end变量中的一些条目含糊不清，因为它们包含数年。 我们选择单元格中的最后一个给定年份。 为此，我们指定一个所谓的正则表达式，它将[[：digit：]] 4 $ -we解释下一段中的含义：
+R> danger_table$crit <- ifelse(str_detect(danger_table$crit, "Natural") ==
+TRUE, "nat", "cult")
+R> danger_table$crit[1:3]
+[1] "cult" "nat"  "cult"
+R> danger_table$yins <- as.numeric(danger_table$yins)
+R> danger_table$yins[1:3]
+[1] 1979 1991 1986
+R> yend_clean <- unlist(str_extract_all(danger_table$yend, "[[:digit:]]4$"))
+R> danger_table$yend <- as.numeric(yend_clean)
+R> danger_table$yend[1:3]
+2001 1992 2013
+  locn变量有点混乱，例如从数据集中抽取三个例子：
+R> danger_table$locn[c(1, 3, 5)]
+[1] "EgyAbusir, Egypt30◦50'30<U+2033>N 29◦39'50<U+2033>E<U+FEFF> / <U+FEFF>30.84167◦N 29.66389◦E<U+FEFF> / 30.84167; 29.66389<U+FEFF>
+(Abu Mena)"
+[2] "Syria !Aleppo Governorate, Syria36◦ 14'0<U+2033>N 37◦ 10'0<U+2033 >E<U+FEFF> / <U+FEFF>36.23333◦N 37.16667◦E<U+FEFF> / 36.23333; 37.16667 <U+FEFF> (Ancient City of Aleppo)"
+[3] "Syria !Damascus Governorate, Syria33◦ 30'41<U+2033>N 36◦ 18'23 <U+2033>E<U+FEFF> / <U+FEFF>33.51139◦N 36.30639◦E<U+FEFF> / 33.51139; 36.30639<U+FEFF> (Ancient City of Damascus)"
+  该变量包含网站位置名称，国家和地理坐标的不同部分。由纬度（例如30.84167N）和经度（例如29.66389E）的值给出坐标的准备。提取这些信息，我们必须使用一些更高级的文本操作工具 “常用表达”，这些在第8章中有详细讨论。简而言之，我们必须给R一个关于我们感兴趣的信息的确切描述，然后让R搜索并提取它。 为此，我们使用stringr包中的函数，我们将在第8章中详细讨论。为了获得纬度和经度值，我们编写如下代码：
+R> reg_y <- "[/][ -]*[[:digit:]]*[.]*[[:digit:]]*[;]"
+R> reg_x <- "[;][ -]*[[:digit:]]*[.]*[[:digit:]]*"
+R> y_coords <- str_extract(danger_table$locn, reg_y)
+R> y_coords <- as.numeric(str_sub(y_coords, 3, -2))
+R> danger_table$y_coords <- y_coords
+R> x_coords <- str_extract(danger_table$locn, reg_x)
+R> x_coords <- as.numeric(str_sub(x_coords, 3, -1))
+R> danger_table$x_coords <- x_coords
+R> danger_table$locn <- NULL
+  不要被前两行代码混淆。 猴子在键盘上输入的结果实际上是对locn变量中坐标的精确描述。 信息以十进制度以及度，分和秒的形式包含在locn变量中。 由于十进制度更容易用正则表达式来描述，因此我们尝试提取这些值。 编写正则表达式意味着找出我们想要提取的字符串的一般模式。 我们观察到纬度和经度总是出现在斜线之后，并且是由点分隔的几个数字的序列。 一些值以负号开始。 两个值用分号隔开，该分号与空格和斜杠一起被切断。 当我们使用str_extract（）命令将此模式应用于locn变量并使用str_sub（）提取数字信息时，我们得到以下结果：
+R> round(danger_table$y_coords, 2)[1:3]
+[1] 30.84 18.28 36.23
+R> round(danger_table$x_coords, 2)[1:3]
+[1] 29.66  8.00 37.17
+  这似乎很好地工作。 我们已经找到了一组44个坐标，相当于44个危险的世界遗产。 让我们先看看数据。 dim（）返回数据帧的行数和列数; head（）返回前几个观察值：
+R> dim(danger_table)
+[1] 44  6
+R> head(danger_table)
+  该数据框包含了44个观察值和6个变量。数据表现了我们可以继续进行网站映射的方式。 为此，我们使用另一个名为“maps”的软件包。在其中，我们找到了一张我们用来查找网站位置的世界地图，其中提取了y和x坐标。 结果显示在图1.1中。 它产生如下：
+R> pch <- ifelse(danger_table$crit == "nat", 19, 2)
+R> map("world", col = "darkgrey", lwd = 0.5, mar = c(0.1, 0.1, 0.1, 0.1))
+R> points(danger_table$x_coords, danger_table$y_coords, pch = pch)
+R> box()
+  我们发现许多濒临灭绝的遗址分布在非洲，中东和西南亚，以及南美和中美洲的其他一些遗址。 濒危的文化遗产被视为三角形。 他们倾向于聚集在中东和西南亚。 相反，处于危险之中的自然遗产地在这里被视为点，在非洲更为突出。 我们发现文化比自然的文化更危险。
+R> table(danger_table$crit)
+cult nat 26 18
